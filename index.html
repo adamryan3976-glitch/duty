@@ -11,8 +11,8 @@
     <meta name="apple-mobile-web-app-title" content="WPS Duty">
     
     <!-- Favicon & Apple Icon (Linked to your Github file) -->
-    <link rel="icon" type="image/png" href="DutyLogo.png">
-    <link rel="apple-touch-icon" href="DutyLogo.png">
+    <link rel="icon" type="image/jpeg" href="DutyLogo.jpg">
+    <link rel="apple-touch-icon" href="DutyLogo.jpg">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -21,16 +21,12 @@
         .duty-card { transition: transform 0.1s ease; }
         .duty-card:active { transform: scale(0.98); }
         
-        /* Time-based color coding matching your sheet */
+        /* Time-based color coding */
         .border-8-30 { border-left: 6px solid #FEF3C7; }
         .border-10-15 { border-left: 6px solid #D1FAE5; }
         .border-11-30 { border-left: 6px solid #DBEAFE; }
         .border-2-00 { border-left: 6px solid #FFEDD5; }
         .border-3-15 { border-left: 6px solid #F3E8FF; }
-
-        /* Custom scrollbar for day picker */
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen pb-12">
@@ -39,18 +35,21 @@
     <div class="bg-white shadow-md safe-area-top sticky top-0 z-50">
         <div class="px-4 py-3 flex items-center justify-between border-b border-gray-100">
             <div class="flex items-center gap-3">
-                <img src="DutyLogo.png" alt="WPS Logo" class="w-12 h-12 rounded-xl shadow-sm object-contain bg-gray-50 p-0.5 border border-gray-100">
+                <img src="DutyLogo.jpg" alt="WPS Logo" class="w-12 h-12 rounded-xl shadow-sm object-contain bg-gray-50 p-0.5 border border-gray-100">
                 <div>
-                    <h1 class="text-lg font-black tracking-tight text-gray-900 leading-none">WPS DUTY</h1>
-                    <p class="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mt-1">2025-26 Schedule</p>
+                    <h1 class="text-lg font-black tracking-tight text-gray-900 leading-none uppercase">WPS Duty</h1>
+                    <p id="headerDate" class="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mt-1.5">Loading Date...</p>
                 </div>
             </div>
             <div class="text-right">
-                <p id="activeDayText" class="text-xs font-bold text-gray-400 uppercase">Select Day</p>
+                <p id="activeDayText" class="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Cycle Day</p>
+                <div id="cycleDayBadge" class="hidden mt-0.5">
+                    <span class="bg-indigo-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase">Today</span>
+                </div>
             </div>
         </div>
         
-        <!-- Day Picker (Bottom of Header) -->
+        <!-- Day Picker -->
         <div class="flex justify-around bg-gray-50 p-2 gap-2">
             <button onclick="setDay(1)" class="day-btn flex-1 py-2.5 rounded-xl font-black transition-all text-xs border border-gray-200 text-gray-400 bg-white shadow-sm" id="btn-1">DAY 1</button>
             <button onclick="setDay(2)" class="day-btn flex-1 py-2.5 rounded-xl font-black transition-all text-xs border border-gray-200 text-gray-400 bg-white shadow-sm" id="btn-2">DAY 2</button>
@@ -64,33 +63,45 @@
     <div id="content" class="p-4 space-y-4">
         <div class="flex flex-col justify-center items-center h-64 text-gray-400">
             <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-4"></div>
-            <p class="animate-pulse font-medium">Syncing with Google Sheets...</p>
+            <p class="animate-pulse font-medium text-sm tracking-wide text-indigo-900/40 uppercase">Loading Unpleasantness</p>
         </div>
     </div>
 
     <!-- Alert Modal -->
     <div id="msgBox" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-6">
         <div class="bg-white rounded-3xl p-8 w-full max-w-xs text-center shadow-2xl">
-            <img src="DutyLogo.png" class="w-16 h-16 mx-auto mb-4 rounded-2xl grayscale opacity-50">
+            <img src="DutyLogo.jpg" class="w-16 h-16 mx-auto mb-4 rounded-2xl grayscale opacity-50">
             <p id="msgText" class="text-gray-800 font-medium mb-6"></p>
             <button onclick="closeMsg()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg active:bg-indigo-700">Dismiss</button>
         </div>
     </div>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbxl9knVtJHmncdq05-TrsiLWOOGJhLAIEmPZCdJy78wihz3RaDyo1z4AdTF4Ufwt2kz/exec"; 
+        // Updated API URL
+        const API_URL = "https://script.google.com/macros/s/AKfycbxBOuPHAGIJitCIz1fYQM0Fff8xXWFuKiHA6vSlguG7X9imbVF2fKL6asVaW4eHyEzE/exec"; 
 
         let scheduleData = [];
+        let serverTodayDay = null;
         let currentDay = 1;
 
         async function fetchSchedule() {
             try {
                 const response = await fetch(API_URL);
-                if (!response.ok) throw new Error('Network response was not ok');
-                scheduleData = await response.json();
-                renderSchedule();
+                if (!response.ok) throw new Error('Network error');
+                const data = await response.json();
+                
+                scheduleData = data.schedule;
+                serverTodayDay = parseInt(data.today.cycleDay);
+                
+                // Update header date from "Today" sheet Cell A2
+                document.getElementById('headerDate').innerText = data.today.date;
+                
+                // Default to Today's Cycle Day if valid (1-5), else Day 1
+                const startDay = (serverTodayDay >= 1 && serverTodayDay <= 5) ? serverTodayDay : 1;
+                setDay(startDay);
+                
             } catch (err) {
-                showMsg("Couldn't connect to the schedule. Please check your internet connection.");
+                showMsg("Couldn't fetch the schedule. Ensure the Web App is deployed and accessible.");
                 console.error(err);
             }
         }
@@ -98,16 +109,27 @@
         function setDay(day) {
             currentDay = day;
             
-            // Update UI buttons
+            // UI Button resets
             document.querySelectorAll('.day-btn').forEach(btn => {
                 btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600', 'ring-2', 'ring-indigo-100');
                 btn.classList.add('text-gray-400', 'bg-white', 'border-gray-200');
             });
+            
             const activeBtn = document.getElementById('btn-' + day);
-            activeBtn.classList.remove('text-gray-400', 'bg-white', 'border-gray-200');
-            activeBtn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600', 'ring-2', 'ring-indigo-100');
+            if (activeBtn) {
+                activeBtn.classList.remove('text-gray-400', 'bg-white', 'border-gray-200');
+                activeBtn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600', 'ring-2', 'ring-indigo-100');
+            }
 
-            document.getElementById('activeDayText').innerText = "Day " + day;
+            // Update Header labels
+            const badge = document.getElementById('cycleDayBadge');
+            if (day === serverTodayDay) {
+                badge.classList.remove('hidden');
+                document.getElementById('activeDayText').innerText = "Day " + day;
+            } else {
+                badge.classList.add('hidden');
+                document.getElementById('activeDayText').innerText = "Viewing Day " + day;
+            }
 
             renderSchedule();
         }
@@ -118,7 +140,7 @@
             const content = document.getElementById('content');
             content.innerHTML = '';
 
-            const colIndex = currentDay + 1;
+            const colIndex = currentDay + 1; // Column C is index 2
             let lastTimeSlot = "";
 
             for (let i = 1; i < scheduleData.length; i++) {
@@ -130,19 +152,20 @@
 
                 if (!location && !staff && !timeSlot) continue;
                 
+                // Create headers for new time blocks
                 if (timeSlot && timeSlot !== lastTimeSlot) {
                     lastTimeSlot = timeSlot;
                     const borderClass = "border-" + timeSlot.replace(':', '-').split(' ')[0];
                     
                     const header = document.createElement('div');
-                    header.className = `mt-6 mb-2 px-3 py-1.5 text-xs font-black text-gray-500 uppercase tracking-widest flex items-center bg-white shadow-sm rounded-lg border-l-4 ${borderClass}`;
+                    header.className = `mt-6 mb-2 px-3 py-1.5 text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center bg-white shadow-sm rounded-lg border-l-4 ${borderClass}`;
                     header.innerText = timeSlot;
                     content.appendChild(header);
                 }
 
                 if (location) {
                     const card = document.createElement('div');
-                    card.className = "duty-card bg-white rounded-2xl p-4 shadow-sm border border-gray-100 active:bg-gray-50";
+                    card.className = "duty-card bg-white rounded-2xl p-4 shadow-sm border border-gray-100 active:bg-gray-50 mb-3";
                     
                     const hasIndoor = (indoorLoc && !["n/a", "N/A", "-", ""].includes(indoorLoc));
                     const indoorSection = hasIndoor 
@@ -151,7 +174,7 @@
                                <svg class="w-3.5 h-3.5 text-amber-600" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>
                              </div>
                              <div>
-                               <p class="text-[9px] font-black text-amber-600 uppercase leading-none mb-1">Indoor Location</p>
+                               <p class="text-[9px] font-black text-amber-600 uppercase leading-none mb-1">Indoor Station</p>
                                <p class="text-sm text-gray-700 font-semibold">${indoorLoc}</p>
                              </div>
                            </div>` 
@@ -184,10 +207,7 @@
             document.getElementById('msgBox').classList.add('hidden');
         }
 
-        window.onload = () => {
-            setDay(1);
-            fetchSchedule();
-        };
+        window.onload = fetchSchedule;
     </script>
 </body>
 </html>
